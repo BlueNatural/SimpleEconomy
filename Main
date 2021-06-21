@@ -10,6 +10,7 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -48,22 +49,26 @@ public class Main extends JavaPlugin implements Listener {
 		plugin.getConfig().addDefault(successfulsound, "ENTITY_PLAYER_LEVELUP");
 		String failingsound = "failing-sound";
 		plugin.getConfig().addDefault(failingsound, "ITEM_SHIELD_BREAK");
+		String nopermsound = "no-perm-sound";
+		plugin.getConfig().addDefault(nopermsound, "ENTITY_ENDERDRAGON_GROWL");
 		
 		String depositcomplete = "deposit-complete";
 		plugin.getConfig().addDefault(depositcomplete, "&aLấy tiền thành công");
 		String depositfailing = "deposit-failing";
-		plugin.getConfig().addDefault(depositfailing, "&cKhông đủ tiền,lấy tiền thất bại");
+		plugin.getConfig().addDefault(depositfailing, "&cLấy tiền thất bại");
 		
 		String withdrawcomplete = "withdraw-complete";
 		plugin.getConfig().addDefault(withdrawcomplete, "&aRút tiền thành công");
 		
-		String transfermsg = "transfer-msg";
-		plugin.getConfig().addDefault(transfermsg, "&aĐã chuyển số tiền theo yêu cầu là");
-		String failtransfer = "fail-transfer";
-		plugin.getConfig().addDefault(failtransfer, "&cChuyển tiền thất bại,không đủ số tiền là");
-		
 		String successfultitle = "successful-title";
 		plugin.getConfig().addDefault(successfultitle, "&aTHÀNH CÔNG !");
+		
+		String moneywhenfirst = "money-when-first";
+		plugin.getConfig().addDefault(moneywhenfirst, Double.valueOf(100));
+		String takemoneydeath = "take-money-death";
+		plugin.getConfig().addDefault(takemoneydeath, Double.valueOf(10));
+		String activetakemoneydeath = "active-take-moneydeath";
+		plugin.getConfig().addDefault(activetakemoneydeath, Boolean.valueOf(true));
 		
 		String reload = "reload";
 		plugin.getConfig().addDefault(reload, "&aReload Successfully !");
@@ -111,13 +116,59 @@ public class Main extends JavaPlugin implements Listener {
 	}
 	@EventHandler
 	public void onJoin(PlayerJoinEvent e){
-	for (Player pl : getServer().getOnlinePlayers()) {
-		
-	}
-				
-			}	
-
+		Player pl = e.getPlayer();
+		Location l = pl.getLocation();
+		double money = plugin.getConfig().getDouble("money-when-first");
+		if(!pl.hasPlayedBefore()){
+        econ.depositPlayer(pl, money);
+        if(r.transactionSuccess()){
+        	pl.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+        			ChatColor.translateAlternateColorCodes('&', "&aĐã gửi số tiền" + money + "&avào" + pl));
+        	
+        }else{
+        pl.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+        		ChatColor.RED + "Đã xảy ra lỗi,vui lòng báo cáo quản trị viên");
+        pl.playSound(l, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1.0F);
+        }
+			
+		}else{
+			
+		}
+							}
 	@SuppressWarnings("deprecation")
+	@EventHandler
+	public void onDeath(PlayerDeathEvent e){
+		Player player = e.getEntity();
+		Location lo = player.getLocation();
+		Double yourmoney = econ.getBalance(player.getName());
+		if(getConfig().getBoolean("active-take-moneydeath")){
+			if(yourmoney >= getConfig().getDouble("take-money-death")){
+			econ.withdrawPlayer(player, getConfig().getDouble("take-money-death"));
+			if(r.transactionSuccess()){
+				player.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+						ChatColor.translateAlternateColorCodes('&', "&cBạn đã mất" + getConfig().getDouble("take-money-death")));
+				player.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+						ChatColor.translateAlternateColorCodes('&', "&aSố tiền hiện tại là:" + econ.getBalance(player)));
+				player.playSound(lo, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4F, 1F);
+			}else{
+				 
+			        
+			}
+			}else if(yourmoney < getConfig().getDouble("take-money-death")){
+				player.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+						ChatColor.translateAlternateColorCodes('&', "&4Tịch thu số tiền hiện có:" + econ.getBalance(player)));
+				econ.withdrawPlayer(player, yourmoney);
+				player.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+						ChatColor.translateAlternateColorCodes('&', "&aSố tiền hiện có là" + r.balance));
+				
+			}
+				
+			
+		}else{
+			
+		}
+	}
+
 	public boolean onCommand(CommandSender sender, Command cmd, String commandLabel, String[] args) {
 		ConsoleCommandSender console = Bukkit.getConsoleSender();
 		if (!(sender instanceof Player)) {
@@ -128,13 +179,12 @@ public class Main extends JavaPlugin implements Listener {
 				if(cmd.getName().equalsIgnoreCase("simpleeconomy")){
 					if(args.length < 1){
 						if(p.hasPermission("se.help")){
-							p.playSound(loc, Sound.CHEST_CLOSE, 4.0F, 1.0F);
+							p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("successful-sound")), 4.0F, 1.0F);
 							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&7&m------------------------------------------------"));
-							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy deposit &7chuyển tiền vào ngân hàng"));
-							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy withdraw &7rút số tiền từ ngân hàng"));
-							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy show &7xem tài khoản người chơi"));
-							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy pay &7lấy số tiền của mình để gửi"));
-							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy reset &7reset lại tiền của một ai đó"));
+							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy add <player> <số tiền>  &7chuyển tiền vào người chơi"));
+							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy remove <player> <số tiền> &7xóa số tiền khỏi người chơi"));
+							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy show &7xem tài khoản bản thân"));
+							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy reset <player> &7reset lại tiền của một ai đó"));
 							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b/simpleeconomy reload &7reload plugin"));
 							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&ePlugin made by &bBlueNatural"));
 							p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&7&m------------------------------------------------"));
@@ -142,10 +192,11 @@ public class Main extends JavaPlugin implements Listener {
 						}else{
 							p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 									ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-							p.playSound(loc, Sound.BLAZE_HIT, 4F, 1F);
+							p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4F, 1F);
+						
 							return true;
 						}
-						}else if(args.length == 3 && args[0].equalsIgnoreCase("deposit")){
+						}else if(args.length == 3 && args[0].equalsIgnoreCase("add")){
 						   if(p.hasPermission("so.deposit")){
 							Player target = Bukkit.getPlayer(args[1]);
 							double depositAmount = Double.valueOf(args[2]);
@@ -165,20 +216,20 @@ public class Main extends JavaPlugin implements Listener {
 				}else{
 					p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 							ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-					p.playSound(loc, Sound.ANVIL_BREAK, 4.0F, 1F);
+					p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1F);
 				}
 					}else if(args.length == 1 && args[0].equalsIgnoreCase("show")){
 					if(p.hasPermission("se.show")){
-					p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&aSố tiền của" + p.getDisplayName() + "là" + econ.getBalance(p)));
+					p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&aSố tiền của" + p.getDisplayName() + "&alà" + econ.getBalance(p)));
 					return true;
 				}else{
 					p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 							ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-					p.playSound(loc, Sound.BLAZE_HIT, 4F, 1F);
+					p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4F, 1F);
 					return true;
 					
 				}					
-				}else if(args.length == 3 && args[0].equalsIgnoreCase("withdraw")){
+				}else if(args.length == 3 && args[0].equalsIgnoreCase("remove")){
 					if(p.hasPermission("se.withdraw")){
 						Player target = Bukkit.getPlayer(args[1]);
 						Double withdraw = Double.valueOf(args[2]);
@@ -187,22 +238,24 @@ public class Main extends JavaPlugin implements Listener {
 					    		Titles.sendTitle(p, ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("successful-title")), "", 20, Main.this.getConfig().getInt("staying-time"), 20);
 					    		p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("successful-sound")), 4.0F, 1.0F);
 					    		p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("withdraw-complete")));
-					    		return true;
+					    		return true;				    
 					    	}else{
-					    		p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("Failing to send money to system ! You need to have high or equal" + r.amount)));
-					    		p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("failing-sound")), 4F, 1F);			
-					    		return true;
+					    		 p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+
+							        		ChatColor.RED + "Đã xảy ra lỗi,vui lòng báo cáo quản trị viên");
+							        p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1.0F);	
+							      return true;
 					    	}
 					    	}else{
 					    		p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 										ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-								p.playSound(loc, Sound.ANVIL_BREAK, 4.0F, 1F);	
+								p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1F);	
+								
 								return true;
 					    	}
-					    }else if(args.length == 2 && getName().equalsIgnoreCase("reset")){
+					    }else if(args.length == 2 && args[0].equalsIgnoreCase("reset")){
 					    	if(p.hasPermission("se.reset")){
 					    		Player target = Bukkit.getPlayer(args[1]);
-					             r = econ.withdrawPlayer(target, econ.getBalance(target));
+					            r = econ.withdrawPlayer(target, econ.getBalance(target));
 					             if(r.transactionSuccess()){
 					            	 Titles.sendTitle(p, ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("successful-title")), "", 20, Main.this.getConfig().getInt("staying-time"), 20);
 					            	 p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("successful-sound")), 4.0F, 1.0F);
@@ -219,7 +272,7 @@ public class Main extends JavaPlugin implements Listener {
 					    	}else{
 					    		p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 										ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-								p.playSound(loc, Sound.ANVIL_BREAK, 4.0F, 1F);	
+								p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1F);	
 								return true;	
 					    	}
 					    }else if(args.length == 1 && args[0].equalsIgnoreCase("reload")){
@@ -232,13 +285,15 @@ public class Main extends JavaPlugin implements Listener {
 					    	}else{
 					    		p.sendMessage(ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("prefix"))+ 
 										ChatColor.translateAlternateColorCodes('&', Main.this.getConfig().getString("no-perm")));
-								p.playSound(loc, Sound.ANVIL_BREAK, 4.0F, 1F);	
+								p.playSound(loc, Sound.valueOf(Main.this.getConfig().getString("no-perm-sound")), 4.0F, 1F);	
 								return true;	
 					    	}
-					    }
+					  
 						}
 					}
+			}
 		return true;
+					
 						}
 	private void ReloadPlugin() {
 		plugin.reloadConfig();
@@ -247,4 +302,3 @@ public class Main extends JavaPlugin implements Listener {
 		
 	}
 				}
-			
